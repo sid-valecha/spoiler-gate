@@ -54,6 +54,8 @@ Recommended:
 - SQLite for `books`, `chapters`, `chunks`, and FTS
 - `better-sqlite3` for local/demo speed
 - JSON/in-memory fallback if deployment gets annoying
+- Groq-first LLM provider for fast demo responses
+- OpenAI or Anthropic fallback if Groq hits a rate limit, outage, or quality issue
 - OCR optional:
   - Fast path: paste text from page or upload a screenshot
   - Optional: browser OCR with Tesseract.js
@@ -170,6 +172,33 @@ Return CLEAN or UNSUPPORTED.
 ```
 
 This avoids needing the verifier to know the whole future plot.
+
+## Provider Strategy
+
+Use a provider wrapper so the app can fail over without changing API routes:
+
+```text
+try Groq
+if rate-limited/error -> try OpenAI
+if rate-limited/error -> try Anthropic
+if all fail -> return a polished demo fallback answer
+```
+
+Recommended env names:
+
+```text
+GROQ_API_KEY
+OPENAI_API_KEY
+ANTHROPIC_API_KEY
+PRIMARY_LLM_PROVIDER=groq
+GROQ_MODEL=openai/gpt-oss-120b
+OPENAI_MODEL=<set from your OpenAI account>
+ANTHROPIC_MODEL=<set from your Anthropic account>
+```
+
+Groq is the default for demo speed. Use OpenAI/Anthropic as backup for answer quality or if Groq limits show up.
+
+Do not read or commit real `.env` files. Commit only `.env.example`.
 
 ## Hardcoded Demo Is Allowed
 
@@ -338,6 +367,19 @@ Only mention these:
 Build the DB-backed text locator and bounded retrieval first.
 
 Camera OCR is not the core product. The core product is proving that every answer is grounded in source text before the reader's current position.
+
+## Repo Rules
+
+- Direct pushes to `main` are fine for small hackathon changes.
+- Use branches/worktrees only when isolation actually helps.
+- Every Codex commit should include:
+
+```text
+Co-authored-by: Codex <codex@openai.com>
+```
+
+- Never commit `.env`, `.env.local`, EPUBs, or copyrighted source text.
+- Use `.env.example` for variable names only.
 
 ## Parallel Build Strategy
 

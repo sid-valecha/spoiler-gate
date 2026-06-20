@@ -30,6 +30,22 @@ Use worktrees for independent feature branches:
 
 Use subagents for narrow, independent tasks. Avoid parallel edits to the same files.
 
+Direct pushes to `main` are acceptable for small setup, docs, and low-risk hackathon changes. Use branches or worktrees only when the task is independent enough to benefit from isolation.
+
+Every commit created by Codex must include this trailer:
+
+```text
+Co-authored-by: Codex <codex@openai.com>
+```
+
+## Secrets
+
+Do not read `.env`, `.env.local`, or any real secret file.
+
+Only read or edit `.env.example`. Keep real API keys out of git.
+
+Expected key stubs live in `.env.example`.
+
 ## Verification
 
 Before claiming a feature works, run the smallest relevant command:
