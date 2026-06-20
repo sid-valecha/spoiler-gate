@@ -119,8 +119,16 @@ async function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promis
 function fallbackAnswer(question: string, context: SafeContext): AnswerResult {
   const hasReveal = context.chunks.some((chunk) => /never wanted you dead|trying to save|counter-curse/i.test(chunk.text));
   const hasSuspicion = context.chunks.some((chunk) => /snape|severus/i.test(chunk.text));
+  const hasQuirrellReveal = context.chunks.some((chunk) => /it was quirrell|quirrell.*stone|voldemort on my side/i.test(chunk.text));
+  const hasStoneSuspicion = context.chunks.some((chunk) => /stone|fluffy|trapdoor|quirrell|snape/i.test(chunk.text));
   let answer = "The safe context does not reveal that yet. I can only answer from text before your current position.";
-  if (/snape|evil|trust/i.test(question) && hasReveal) {
+  if (/stone|steal|behind|plot|quirrell|voldemort/i.test(question) && hasQuirrellReveal) {
+    answer =
+      "By this point, the safe excerpts reveal that Quirrell is directly involved with the attempt to get the Stone, and that earlier suspicion around Snape was misleading. I can say that now because those details are inside the current reading boundary.";
+  } else if (/stone|steal|behind|plot/i.test(question) && hasStoneSuspicion) {
+    answer =
+      "At this point, the safe context shows a mystery around the Stone, Fluffy, and suspicious behavior, but it does not yet reveal who is truly behind the plot. The spoiler-safe answer is that this has not been revealed yet.";
+  } else if (/snape|evil|trust/i.test(question) && hasReveal) {
     answer =
       "By this point, the text undercuts the simple idea that Snape was the main villain. The safe excerpts indicate he was hostile to Harry, but also that some earlier suspicions about him were misleading.";
   } else if (/snape|evil|trust/i.test(question) && hasSuspicion) {
