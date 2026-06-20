@@ -90,6 +90,29 @@ h1 {
   align-items: start;
 }
 
+.demoStrip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px 14px;
+  color: var(--muted);
+  box-shadow: 0 8px 28px rgba(35, 39, 31, 0.06);
+}
+
+.demoStrip span:first-child {
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.demoStrip strong {
+  color: var(--ink);
+}
+
 .panel {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -182,6 +205,30 @@ input {
   background: var(--accent-2);
 }
 
+.toggleRow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 9px;
+  align-items: center;
+  margin: 14px 0 2px;
+  color: var(--ink);
+  font-weight: 850;
+}
+
+.toggleRow input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.toggleRow small {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .primary {
   width: 100%;
   min-height: 48px;
@@ -223,6 +270,15 @@ input {
   margin-top: 12px;
   font-size: 18px;
   line-height: 1.55;
+}
+
+.proofBox {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 850;
 }
 
 .answerMeta {

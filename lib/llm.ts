@@ -130,7 +130,13 @@ function fallbackAnswer(question: string, context: SafeContext): AnswerResult {
   return { answer, provider: "demo-fallback", model: "local-rule", verified: true, fallback: true };
 }
 
-export async function answerQuestion(question: string, context: SafeContext): Promise<AnswerResult> {
+export async function answerQuestion(
+  question: string,
+  context: SafeContext,
+  options: { fastDemo?: boolean } = {},
+): Promise<AnswerResult> {
+  if (options.fastDemo) return fallbackAnswer(question, context);
+
   const answer = await callProviders(answerPrompt(question, context));
   if (!answer) return fallbackAnswer(question, context);
 

@@ -9,8 +9,18 @@ export async function POST(request: NextRequest) {
   }
   try {
     const context = await getContext(body.bookId, body.offset, body.question);
-    const answer = await answerQuestion(body.question, context);
-    return NextResponse.json({ ...answer, context });
+    const answer = await answerQuestion(body.question, context, { fastDemo: Boolean(body.fastDemo) });
+    const maxChunkEnd = Math.max(0, ...context.chunks.map((chunk) => chunk.end_offset));
+    return NextResponse.json({
+      ...answer,
+      context,
+      boundaryProof: {
+        offset: body.offset,
+        chunks: context.chunks.length,
+        maxChunkEnd,
+        futureChunks: context.chunks.filter((chunk) => chunk.end_offset > body.offset).length,
+      },
+    });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 });
   }

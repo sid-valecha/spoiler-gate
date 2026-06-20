@@ -19,6 +19,12 @@ type Answer = {
   model: string;
   verified: boolean;
   fallback: boolean;
+  boundaryProof: {
+    offset: number;
+    chunks: number;
+    maxChunkEnd: number;
+    futureChunks: number;
+  };
   context: {
     chunks: Chunk[];
     current_chapter: { chapter_number: number; title: string } | null;
@@ -45,6 +51,7 @@ export default function Home() {
   const [located, setLocated] = useState<Located | null>(null);
   const [question, setQuestion] = useState(defaultQuestion);
   const [answer, setAnswer] = useState<Answer | null>(null);
+  const [fastDemo, setFastDemo] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
@@ -103,7 +110,7 @@ export default function Home() {
     setBusy("Answering");
     setError("");
     try {
-      setAnswer(await postJson<Answer>("/api/ask", { bookId, offset: located.offset, question }));
+      setAnswer(await postJson<Answer>("/api/ask", { bookId, offset: located.offset, question, fastDemo }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -120,6 +127,14 @@ export default function Home() {
         </div>
         <div className="statusPill">{busy || "Ready"}</div>
       </header>
+
+      <section className="demoStrip" aria-label="Demo script">
+        <span>Demo script</span>
+        <strong>Early page</strong>
+        <span>ask “Is Snape evil?”</span>
+        <strong>Later page</strong>
+        <span>same question, different safe answer</span>
+      </section>
 
       <section className="grid">
         <div className="panel">
@@ -184,6 +199,16 @@ export default function Home() {
             {defaultQuestion}
           </button>
 
+          <label className="toggleRow">
+            <input
+              type="checkbox"
+              checked={fastDemo}
+              onChange={(event) => setFastDemo(event.target.checked)}
+            />
+            <span>Fast demo mode</span>
+            <small>instant deterministic answer from safe context</small>
+          </label>
+
           <label className="fieldLabel" htmlFor="question">
             Question
           </label>
@@ -206,8 +231,13 @@ export default function Home() {
                 <span>{answer.provider}</span>
                 <span>{answer.fallback ? "demo fallback" : answer.model}</span>
                 <span>{answer.verified ? "verified" : "unchecked"}</span>
+                <span>{answer.boundaryProof.futureChunks} future chunks</span>
               </div>
               <p>{answer.answer}</p>
+              <div className="proofBox">
+                Max chunk end {answer.boundaryProof.maxChunkEnd.toLocaleString()} {" <= "} boundary{" "}
+                {answer.boundaryProof.offset.toLocaleString()}
+              </div>
             </div>
           ) : (
             <div className="emptyState">Load a demo page, locate it, then ask the same question early and later.</div>
