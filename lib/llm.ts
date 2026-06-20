@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import type { SafeContext } from "./pythonPipeline";
 
-type AnswerResult = {
+export type AnswerResult = {
   answer: string;
   provider: string;
   model: string;
@@ -92,10 +92,10 @@ async function callOpenAI(prompt: string) {
 }
 
 async function callProviders(prompt: string) {
-  const order = [callGroq, callOpenAI, callAnthropic];
+  const order = [callGroq, callAnthropic, callOpenAI];
   for (const call of order) {
     try {
-      const result = await withTimeout(call(prompt), 3500);
+      const result = await withTimeout(call(prompt), 8000);
       if (result?.text) return result;
     } catch {
       continue;
@@ -119,12 +119,20 @@ async function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promis
 function fallbackAnswer(question: string, context: SafeContext): AnswerResult {
   const hasReveal = context.chunks.some((chunk) => /never wanted you dead|trying to save|counter-curse/i.test(chunk.text));
   const hasSuspicion = context.chunks.some((chunk) => /snape|severus/i.test(chunk.text));
-  const hasQuirrellReveal = context.chunks.some((chunk) => /it was quirrell|quirrell.*stone|voldemort on my side/i.test(chunk.text));
+  const hasQuirrellReveal =
+    context.offset >= 400000 &&
+    context.chunks.some((chunk) => /it was quirrell|voldemort on my side|never wanted you dead|trying to save/i.test(chunk.text));
+  const hasQuirrellSafeContext = context.chunks.some((chunk) => /quirrell|anti-dark|fluffy|protect(?:ed|ing)? the stone/i.test(chunk.text));
   const hasStoneSuspicion = context.chunks.some((chunk) => /stone|fluffy|trapdoor|quirrell|snape/i.test(chunk.text));
+  const hasCharlieRomania = context.chunks.some((chunk) => /charlie[\s\S]{0,120}romania|romania[\s\S]{0,120}charlie|studying dragons/i.test(chunk.text));
   const hasGryffindorSorting = context.chunks.some((chunk) => /GRYFFINDOR[!’!]/i.test(chunk.text));
   const hasSortingContext = context.chunks.some((chunk) => /sorting|house|gryffindor|slytherin|hufflepuff|ravenclaw/i.test(chunk.text));
+  const isAfterSortingReveal = context.book.id === "harry-potter-sorcerers-stone" && context.offset >= 170221;
   let answer = "The safe context does not reveal that yet. I can only answer from text before your current position.";
-  if (/house|sorted|sorting|gryffindor|slytherin|hufflepuff|ravenclaw/i.test(question) && hasGryffindorSorting) {
+  if (/charlie|ron'?s brother|where/i.test(question) && hasCharlieRomania) {
+    answer =
+      "By this point, the safe context says Charlie is in Romania studying dragons. The text also shows Ron and the others planning to send Norbert to him there.";
+  } else if (/house|sorted|sorting|gryffindor|slytherin|hufflepuff|ravenclaw/i.test(question) && (hasGryffindorSorting || isAfterSortingReveal)) {
     answer =
       "By this point, the safe context reveals Harry has been sorted into Gryffindor. That answer is allowed now because the Sorting Hat decision is inside the current reading boundary.";
   } else if (/house|sorted|sorting/i.test(question) && hasSortingContext) {
@@ -133,6 +141,9 @@ function fallbackAnswer(question: string, context: SafeContext): AnswerResult {
   } else if (/stone|steal|behind|plot|quirrell|voldemort/i.test(question) && hasQuirrellReveal) {
     answer =
       "By this point, the safe excerpts reveal that Quirrell is directly involved with the attempt to get the Stone, and that earlier suspicion around Snape was misleading. I can say that now because those details are inside the current reading boundary.";
+  } else if (/quirrell|weird|strange|odd/i.test(question) && hasQuirrellSafeContext) {
+    answer =
+      "The safe context does not reveal a hidden reason for Quirrell's behavior yet. It only shows that Quirrell is one of the teachers involved in protecting the Stone, while Harry is still trying to understand the mystery around Fluffy and the protections.";
   } else if (/stone|steal|behind|plot/i.test(question) && hasStoneSuspicion) {
     answer =
       "At this point, the safe context shows a mystery around the Stone, Fluffy, and suspicious behavior, but it does not yet reveal who is truly behind the plot. The spoiler-safe answer is that this has not been revealed yet.";
@@ -146,6 +157,28 @@ function fallbackAnswer(question: string, context: SafeContext): AnswerResult {
   return { answer, provider: "demo-fallback", model: "local-rule", verified: true, fallback: true };
 }
 
+function unavailableAnswer(): AnswerResult {
+  return {
+    answer:
+      "I could not get a model answer right now. The safe context is still shown below, and no future chunks were retrieved.",
+    provider: "unavailable",
+    model: "none",
+    verified: false,
+    fallback: false,
+  };
+}
+
+function unsupportedAnswer(): AnswerResult {
+  return {
+    answer:
+      "The model answer was rejected by the spoiler verifier, so I am not showing it. Try asking more narrowly or inspect the safe context below.",
+    provider: "verifier",
+    model: "safe-context-check",
+    verified: false,
+    fallback: false,
+  };
+}
+
 export async function answerQuestion(
   question: string,
   context: SafeContext,
@@ -154,11 +187,11 @@ export async function answerQuestion(
   if (options.fastDemo) return fallbackAnswer(question, context);
 
   const answer = await callProviders(answerPrompt(question, context));
-  if (!answer) return fallbackAnswer(question, context);
+  if (!answer) return unavailableAnswer();
 
   const verdict = await withTimeout(callProviders(verificationPrompt(answer.text, context)), 2500).catch(() => null);
   const clean = !verdict || /^clean\b/i.test(verdict.text);
-  if (!clean) return fallbackAnswer(question, context);
+  if (!clean) return unsupportedAnswer();
 
   return {
     answer: answer.text,

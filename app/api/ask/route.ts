@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { answerCacheKey, getCachedAnswer, putCachedAnswer } from "@/lib/answerCache";
 import { answerQuestion } from "@/lib/llm";
 import { getContext } from "@/lib/pythonPipeline";
 
@@ -9,10 +10,22 @@ export async function POST(request: NextRequest) {
   }
   try {
     const context = await getContext(body.bookId, body.offset, body.question);
-    const answer = await answerQuestion(body.question, context, { fastDemo: Boolean(body.fastDemo) });
+    const fastDemo = Boolean(body.fastDemo);
+    const cacheKey = answerCacheKey(body.question, context, fastDemo);
+    const cachedAnswer = await getCachedAnswer(cacheKey);
+    const answer = cachedAnswer || (await answerQuestion(body.question, context, { fastDemo }));
+    if (!cachedAnswer) {
+      await putCachedAnswer(cacheKey, {
+        bookId: body.bookId,
+        offset: body.offset,
+        question: body.question,
+        answer,
+      });
+    }
     const maxChunkEnd = Math.max(0, ...context.chunks.map((chunk) => chunk.end_offset));
     return NextResponse.json({
       ...answer,
+      cacheHit: Boolean(cachedAnswer),
       context,
       boundaryProof: {
         offset: body.offset,

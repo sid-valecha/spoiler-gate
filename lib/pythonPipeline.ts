@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { promisify } from "node:util";
 import {
+  type DemoStage,
   getJsonContext,
   getJsonDemoSnippet,
   hasJsonCorpus,
@@ -87,9 +88,10 @@ export async function getContext(bookId: string, offset: number, question: strin
   ]);
 }
 
-export async function getDemoSnippet(bookId: string, stage: "early" | "late") {
+export async function getDemoSnippet(bookId: string, stage: DemoStage) {
   if (hasJsonCorpus()) return getJsonDemoSnippet(bookId, stage);
   await ensureDatabase();
+  const legacyStage = stage === "snape-after" ? "late" : "early";
   return runPipeline<{
     stage: string;
     book_id: string;
@@ -97,5 +99,5 @@ export async function getDemoSnippet(bookId: string, stage: "early" | "late") {
     start_offset: number;
     end_offset: number;
     text: string;
-  }>(["snippet", "--db", dbPath, "--book-id", bookId, "--stage", stage]);
+  }>(["snippet", "--db", dbPath, "--book-id", bookId, "--stage", legacyStage]);
 }

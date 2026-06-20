@@ -19,6 +19,8 @@ type Answer = {
   model: string;
   verified: boolean;
   fallback: boolean;
+  cacheHit?: boolean;
+  cacheHits?: number;
   boundaryProof: {
     offset: number;
     chunks: number;
@@ -30,8 +32,6 @@ type Answer = {
     current_chapter: { chapter_number: number; title: string } | null;
   };
 };
-
-const defaultQuestion = "What house is Harry in?";
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const response = await fetch(url, {
@@ -58,9 +58,9 @@ export default function Home() {
   const [bookId, setBookId] = useState("harry-potter-sorcerers-stone");
   const [pageText, setPageText] = useState("");
   const [located, setLocated] = useState<Located | null>(null);
-  const [question, setQuestion] = useState(defaultQuestion);
+  const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<Answer | null>(null);
-  const [fastDemo, setFastDemo] = useState(true);
+  const [fastDemo, setFastDemo] = useState(false);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
@@ -79,24 +79,6 @@ export default function Home() {
       })
       .catch((err) => setError(err.message));
   }, []);
-
-  async function loadSnippet(stage: "early" | "late") {
-    setBusy(`Loading ${stage} page`);
-    setError("");
-    setAnswer(null);
-    try {
-      const response = await fetch(`/api/demo-snippet?bookId=${bookId}&stage=${stage}`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not load demo snippet");
-      setPageText(data.text);
-      const result = await postJson<Located>("/api/locate", { bookId, pageText: data.text });
-      setLocated(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setBusy("");
-    }
-  }
 
   async function locate() {
     setBusy("Locating page");
@@ -155,14 +137,6 @@ export default function Home() {
         <div className="statusPill">Status: {busy || "Ready"}</div>
       </header>
 
-      <section className="demoStrip" aria-label="Demo script">
-        <span>Demo script</span>
-        <strong>Before sorting</strong>
-        <span>ask “What house is Harry in?”</span>
-        <strong>After sorting</strong>
-        <span>same question, safe answer changes</span>
-      </section>
-
       <section className="grid">
         <div className="panel">
           <div className="sectionHeader">
@@ -181,15 +155,6 @@ export default function Home() {
             ))}
           </select>
           {selectedBook ? <p className="muted">{selectedBook.source_label}</p> : null}
-
-          <div className="buttonRow">
-            <button type="button" onClick={() => loadSnippet("early")} disabled={Boolean(busy)}>
-              Use before-sorting page
-            </button>
-            <button type="button" onClick={() => loadSnippet("late")} disabled={Boolean(busy)}>
-              Use after-sorting page
-            </button>
-          </div>
 
           <label className="uploadBox">
             <span>Upload page screenshot</span>
@@ -218,10 +183,10 @@ export default function Home() {
 
           {located ? (
             <div className="resultBox">
-              <strong>Located: Chapter {located.chapter_number}</strong>
-              <span>{located.chapter_title}</span>
+              <strong>Located: {located.chapter_title}</strong>
               <span>
-                Offset {located.offset.toLocaleString()} · {Math.round(located.confidence * 100)}% · {located.method}
+                EPUB section {located.chapter_number} · offset {located.offset.toLocaleString()} ·{" "}
+                {Math.round(located.confidence * 100)}% · {located.method}
               </span>
             </div>
           ) : null}
@@ -233,20 +198,6 @@ export default function Home() {
             <span>bounded retrieval</span>
           </div>
 
-          <button className="questionChip" type="button" onClick={() => setQuestion(defaultQuestion)}>
-            {defaultQuestion}
-          </button>
-
-          <label className="toggleRow">
-            <input
-              type="checkbox"
-              checked={fastDemo}
-              onChange={(event) => setFastDemo(event.target.checked)}
-            />
-            <span>Fast demo mode</span>
-            <small>instant deterministic answer from safe context</small>
-          </label>
-
           <label className="fieldLabel" htmlFor="question">
             Question
           </label>
@@ -254,8 +205,18 @@ export default function Home() {
             id="question"
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Ask a spoiler-risky question"
+            placeholder="Ask anything that might depend on how far you have read"
           />
+
+          <label className="toggleRow">
+            <input
+              type="checkbox"
+              checked={fastDemo}
+              onChange={(event) => setFastDemo(event.target.checked)}
+            />
+            <span>Local deterministic mode</span>
+            <small>Use only built-in demo rules when model calls are slow or unavailable.</small>
+          </label>
 
           <button className="primary" type="button" onClick={ask} disabled={Boolean(busy) || !located || !question}>
             Ask from safe context
@@ -267,6 +228,7 @@ export default function Home() {
             <div className="answerBox">
               <div className="answerMeta">
                 <span>{answer.provider}</span>
+                <span>{answer.cacheHit ? `cache hit${answer.cacheHits ? ` x${answer.cacheHits}` : ""}` : "fresh answer"}</span>
                 <span>{answer.fallback ? "demo fallback" : answer.model}</span>
                 <span>{answer.verified ? "verified" : "unchecked"}</span>
                 <span>{answer.boundaryProof.futureChunks} future chunks</span>
@@ -278,7 +240,7 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            <div className="emptyState">Load before/after sorting, locate it, then ask the same question.</div>
+            <div className="emptyState">Upload or paste a page, locate your reading boundary, then ask from safe context.</div>
           )}
 
           {answer?.context?.chunks?.length ? (
@@ -287,7 +249,7 @@ export default function Home() {
               {answer.context.chunks.map((chunk) => (
                 <article key={chunk.id}>
                   <strong>
-                    Chapter {chunk.chapter_number} · offsets {chunk.start_offset.toLocaleString()}-
+                    EPUB section {chunk.chapter_number} · offsets {chunk.start_offset.toLocaleString()}-
                     {chunk.end_offset.toLocaleString()}
                   </strong>
                   <p>{chunk.text}</p>

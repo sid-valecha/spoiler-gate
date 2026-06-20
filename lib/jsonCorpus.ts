@@ -23,6 +23,7 @@ type Chunk = {
   text: string;
 };
 type Corpus = { schema_version: number; books: Book[]; chapters: Chapter[]; chunks: Chunk[] };
+export type DemoStage = "sorting-before" | "sorting-after" | "snape-before" | "snape-after" | "early" | "late";
 
 let cachedCorpus: Corpus | null = null;
 
@@ -182,15 +183,39 @@ export function getJsonContext(bookId: string, offset: number, question: string)
   const nearbyChunks = safeFullChunks
     .sort((a, b) => b.end_offset - a.end_offset)
     .slice(0, 5);
+  const mentionChunks = terms
+    .filter((term) => term.length >= 5)
+    .flatMap((term) =>
+      safeFullChunks
+        .filter((chunk) => normalizeText(chunk.text).includes(term))
+        .sort((a, b) => a.end_offset - b.end_offset)
+        .slice(0, 2),
+    );
+  const stableFactChunks = /house|sorted|sorting|gryffindor|slytherin|hufflepuff|ravenclaw/i.test(question)
+    ? safeFullChunks
+        .filter((chunk) => /gryffindor/i.test(chunk.text))
+        .sort((a, b) => {
+          const aScore = (/harry/i.test(a.text) ? 2 : 0) + (/sorting|hat|stool|slytherin/i.test(a.text) ? 1 : 0);
+          const bScore = (/harry/i.test(b.text) ? 2 : 0) + (/sorting|hat|stool|slytherin/i.test(b.text) ? 1 : 0);
+          return bScore - aScore || a.end_offset - b.end_offset;
+        })
+        .slice(0, 2)
+    : [];
   const seen = new Set<string>();
-  const safeChunks = [...scoredChunks, ...nearbyChunks, ...(clippedCurrentChunk ? [clippedCurrentChunk] : [])]
+  const safeChunks = [
+    ...stableFactChunks,
+    ...scoredChunks,
+    ...mentionChunks,
+    ...nearbyChunks,
+    ...(clippedCurrentChunk ? [clippedCurrentChunk] : []),
+  ]
     .filter((chunk) => {
       if (seen.has(chunk.id)) return false;
       seen.add(chunk.id);
       return true;
     })
-    .sort((a, b) => b.end_offset - a.end_offset)
     .slice(0, 8)
+    .sort((a, b) => b.end_offset - a.end_offset)
     .map((chunk) => ({
       id: chunk.id,
       chapter_number: chunk.chapter_number,
@@ -215,15 +240,15 @@ export function getJsonContext(bookId: string, offset: number, question: string)
   };
 }
 
-export function getJsonDemoSnippet(bookId: string, stage: "early" | "late") {
-  const normalizedStage = stage === "late" ? "late" : "early";
+export function getJsonDemoSnippet(bookId: string, stage: DemoStage) {
+  const normalizedStage = stage === "late" ? "sorting-after" : stage === "early" ? "sorting-before" : stage;
   const chunks = loadCorpus().chunks.filter((chunk) => chunk.book_id === bookId);
   const sortingChunk = chunks.find((chunk) => /GRYFFINDOR[!’!]/i.test(chunk.text));
-  if (sortingChunk) {
+  if ((normalizedStage === "sorting-before" || normalizedStage === "sorting-after") && sortingChunk) {
     const match = sortingChunk.text.match(/GRYFFINDOR[!’!]/i);
     const revealIndex = match?.index ?? Math.floor(sortingChunk.text.length / 2);
     const text =
-      normalizedStage === "early"
+      normalizedStage === "sorting-before"
         ? sortingChunk.text.slice(Math.max(0, revealIndex - 700), Math.max(0, revealIndex - 80))
         : sortingChunk.text.slice(Math.max(0, revealIndex - 300), Math.min(sortingChunk.text.length, revealIndex + 180));
     return {
@@ -231,18 +256,40 @@ export function getJsonDemoSnippet(bookId: string, stage: "early" | "late") {
       book_id: bookId,
       chapter_number: sortingChunk.chapter_number,
       start_offset:
-        normalizedStage === "early"
+        normalizedStage === "sorting-before"
           ? sortingChunk.start_offset + Math.max(0, revealIndex - 700)
           : sortingChunk.start_offset + Math.max(0, revealIndex - 300),
       end_offset:
-        normalizedStage === "early"
+        normalizedStage === "sorting-before"
           ? sortingChunk.start_offset + Math.max(0, revealIndex - 80)
           : sortingChunk.start_offset + Math.min(sortingChunk.text.length, revealIndex + 180),
       text,
     };
   }
+
+  const snapeChunk =
+    normalizedStage === "snape-after"
+      ? chunks.find(
+          (chunk) =>
+            chunk.chapter_number === 22 &&
+            /Quirrell/i.test(chunk.text) &&
+            /Snape/i.test(chunk.text) &&
+            (/trying to save/i.test(chunk.text) || /never wanted/i.test(chunk.text)),
+        )
+      : chunks.find((chunk) => chunk.chapter_number >= 12 && chunk.chapter_number <= 15 && /Snape/i.test(chunk.text));
+  if ((normalizedStage === "snape-before" || normalizedStage === "snape-after") && snapeChunk) {
+    return {
+      stage: normalizedStage,
+      book_id: bookId,
+      chapter_number: snapeChunk.chapter_number,
+      start_offset: snapeChunk.start_offset,
+      end_offset: snapeChunk.end_offset,
+      text: snapeChunk.text,
+    };
+  }
+
   const chosen =
-    normalizedStage === "early"
+    normalizedStage === "snape-before"
       ? chunks.find((chunk) => chunk.chapter_number >= 13 && chunk.chapter_number <= 15 && /Snape/i.test(chunk.text))
       : chunks.find(
           (chunk) =>

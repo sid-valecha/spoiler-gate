@@ -19,6 +19,12 @@ DB_PATH = Path("data/generated/spoiler_gate.sqlite")
 CORPUS_PATH = Path("data/generated/demo-corpus.json")
 
 
+def _unlink_sqlite_files(path: Path) -> None:
+    path.unlink(missing_ok=True)
+    Path(f"{path}-wal").unlink(missing_ok=True)
+    Path(f"{path}-shm").unlink(missing_ok=True)
+
+
 def normalize_text(text: str) -> str:
     text = unescape(text)
     text = re.sub(r"[^A-Za-z0-9]+", " ", text)
@@ -165,8 +171,7 @@ def build_database(
 ) -> dict[str, Any]:
     book = extract_epub(epub_path, book_id)
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    if db_path.exists():
-        db_path.unlink()
+    _unlink_sqlite_files(db_path)
 
     with sqlite3.connect(db_path) as conn:
         conn.executescript(
@@ -251,6 +256,78 @@ def build_database(
         "title": book["title"],
         "chapters": len(book["chapters"]),
         "chunks": chunk_count,
+        "db_path": str(db_path),
+    }
+
+
+def build_database_many(
+    epub_paths: list[Path],
+    db_path: Path = DB_PATH,
+    chunk_size: int = 180,
+    overlap: int = 35,
+) -> dict[str, Any]:
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    _unlink_sqlite_files(db_path)
+
+    books = []
+    total_chapters = 0
+    total_chunks = 0
+    for index, epub_path in enumerate(epub_paths):
+        temp_path = db_path if index == 0 else db_path.with_name(f"{db_path.stem}-tmp-{index}.sqlite")
+        result = build_database(epub_path, temp_path, None, chunk_size, overlap)
+        if index == 0:
+            books.append(result)
+            total_chapters += result["chapters"]
+            total_chunks += result["chunks"]
+            continue
+
+        with sqlite3.connect(db_path) as dest, sqlite3.connect(temp_path) as src:
+            dest.row_factory = sqlite3.Row
+            src.row_factory = sqlite3.Row
+            for row in src.execute("SELECT * FROM books"):
+                dest.execute(
+                    "INSERT INTO books (id, title, author, source_label) VALUES (?, ?, ?, ?)",
+                    (row["id"], row["title"], row["author"], row["source_label"]),
+                )
+            for row in src.execute("SELECT * FROM chapters"):
+                dest.execute(
+                    """
+                    INSERT INTO chapters
+                    (id, book_id, chapter_number, title, start_offset, end_offset, summary, text)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        row["id"],
+                        row["book_id"],
+                        row["chapter_number"],
+                        row["title"],
+                        row["start_offset"],
+                        row["end_offset"],
+                        row["summary"],
+                        row["text"],
+                    ),
+                )
+            for row in src.execute("SELECT * FROM chunks"):
+                dest.execute(
+                    """
+                    INSERT INTO chunks
+                    (id, book_id, chapter_number, start_offset, end_offset, text)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (row["id"], row["book_id"], row["chapter_number"], row["start_offset"], row["end_offset"], row["text"]),
+                )
+                dest.execute("INSERT INTO chunks_fts (text, chunk_id) VALUES (?, ?)", (row["text"], row["id"]))
+            dest.commit()
+        _unlink_sqlite_files(temp_path)
+        books.append(result)
+        total_chapters += result["chapters"]
+        total_chunks += result["chunks"]
+
+    return {
+        "books": books,
+        "book_count": len(books),
+        "chapters": total_chapters,
+        "chunks": total_chunks,
         "db_path": str(db_path),
     }
 
@@ -528,6 +605,10 @@ def main() -> None:
     ingest.add_argument("--db", type=Path, default=DB_PATH)
     ingest.add_argument("--book-id", default=None)
 
+    ingest_many = subparsers.add_parser("ingest-many")
+    ingest_many.add_argument("epubs", type=Path, nargs="+")
+    ingest_many.add_argument("--db", type=Path, default=DB_PATH)
+
     locate = subparsers.add_parser("locate")
     locate.add_argument("--db", type=Path, default=DB_PATH)
     locate.add_argument("--book-id", required=True)
@@ -554,6 +635,8 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "ingest":
         result = build_database(args.epub, args.db, args.book_id)
+    elif args.command == "ingest-many":
+        result = build_database_many(args.epubs, args.db)
     elif args.command == "locate":
         result = locate_progress(args.db, args.book_id, args.text)
     elif args.command == "context":
