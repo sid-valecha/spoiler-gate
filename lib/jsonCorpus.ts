@@ -71,14 +71,23 @@ function normalizeWithMap(text: string) {
 }
 
 function candidatePhrases(pageText: string) {
-  const words = normalizeText(pageText).split(" ").filter(Boolean);
+  const blocks = [
+    normalizeText(pageText),
+    ...pageText
+      .split(/\n+/)
+      .map((line) => normalizeText(line))
+      .filter(Boolean),
+  ];
   const phrases: string[] = [];
-  for (const size of [20, 16, 12, 8, 5]) {
-    if (words.length >= size) {
-      const midpoint = Math.max(0, Math.floor((words.length - size) / 2));
-      phrases.push(words.slice(midpoint, midpoint + size).join(" "));
-      phrases.push(words.slice(0, size).join(" "));
-      phrases.push(words.slice(-size).join(" "));
+  for (const block of blocks) {
+    const words = block.split(" ").filter(Boolean);
+    for (const size of [20, 16, 12, 8, 5]) {
+      if (words.length >= size) {
+        const midpoint = Math.max(0, Math.floor((words.length - size) / 2));
+        phrases.push(words.slice(midpoint, midpoint + size).join(" "));
+        phrases.push(words.slice(0, size).join(" "));
+        phrases.push(words.slice(-size).join(" "));
+      }
     }
   }
   return [...new Set(phrases.filter(Boolean))];
@@ -209,6 +218,29 @@ export function getJsonContext(bookId: string, offset: number, question: string)
 export function getJsonDemoSnippet(bookId: string, stage: "early" | "late") {
   const normalizedStage = stage === "late" ? "late" : "early";
   const chunks = loadCorpus().chunks.filter((chunk) => chunk.book_id === bookId);
+  const sortingChunk = chunks.find((chunk) => /GRYFFINDOR[!’!]/i.test(chunk.text));
+  if (sortingChunk) {
+    const match = sortingChunk.text.match(/GRYFFINDOR[!’!]/i);
+    const revealIndex = match?.index ?? Math.floor(sortingChunk.text.length / 2);
+    const text =
+      normalizedStage === "early"
+        ? sortingChunk.text.slice(Math.max(0, revealIndex - 700), Math.max(0, revealIndex - 80))
+        : sortingChunk.text.slice(Math.max(0, revealIndex - 300), Math.min(sortingChunk.text.length, revealIndex + 180));
+    return {
+      stage: normalizedStage,
+      book_id: bookId,
+      chapter_number: sortingChunk.chapter_number,
+      start_offset:
+        normalizedStage === "early"
+          ? sortingChunk.start_offset + Math.max(0, revealIndex - 700)
+          : sortingChunk.start_offset + Math.max(0, revealIndex - 300),
+      end_offset:
+        normalizedStage === "early"
+          ? sortingChunk.start_offset + Math.max(0, revealIndex - 80)
+          : sortingChunk.start_offset + Math.min(sortingChunk.text.length, revealIndex + 180),
+      text,
+    };
+  }
   const chosen =
     normalizedStage === "early"
       ? chunks.find((chunk) => chunk.chapter_number >= 13 && chunk.chapter_number <= 15 && /Snape/i.test(chunk.text))

@@ -31,7 +31,7 @@ type Answer = {
   };
 };
 
-const defaultQuestion = "Is Snape evil?";
+const defaultQuestion = "What house is Harry in?";
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const response = await fetch(url, {
@@ -118,7 +118,7 @@ export default function Home() {
     setAnswer(null);
     try {
       const imageData = await readFileAsDataUrl(file);
-      const result = await postJson<{ text: string }>("/api/ocr", { imageData });
+      const result = await postJson<{ text: string; anchors?: string[] }>("/api/ocr", { imageData });
       setPageText(result.text);
       const locatedResult = await postJson<Located>("/api/locate", { bookId, pageText: result.text });
       setLocated(locatedResult);
@@ -152,15 +152,15 @@ export default function Home() {
           <h1>Spoiler Gate</h1>
           <p>Ask from the page you are on. Nothing past the source boundary.</p>
         </div>
-        <div className="statusPill">{busy || "Ready"}</div>
+        <div className="statusPill">Status: {busy || "Ready"}</div>
       </header>
 
       <section className="demoStrip" aria-label="Demo script">
         <span>Demo script</span>
-        <strong>Early page</strong>
-        <span>ask “Is Snape evil?”</span>
-        <strong>Later page</strong>
-        <span>same question, different safe answer</span>
+        <strong>Before sorting</strong>
+        <span>ask “What house is Harry in?”</span>
+        <strong>After sorting</strong>
+        <span>same question, safe answer changes</span>
       </section>
 
       <section className="grid">
@@ -184,16 +184,16 @@ export default function Home() {
 
           <div className="buttonRow">
             <button type="button" onClick={() => loadSnippet("early")} disabled={Boolean(busy)}>
-              Use early demo page
+              Use before-sorting page
             </button>
             <button type="button" onClick={() => loadSnippet("late")} disabled={Boolean(busy)}>
-              Use later demo page
+              Use after-sorting page
             </button>
           </div>
 
           <label className="uploadBox">
             <span>Upload page screenshot</span>
-            <small>Optional OCR path. Demo buttons are the reliable fallback.</small>
+            <small>OCR reads short anchor phrases, then locates them in the EPUB.</small>
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
@@ -203,13 +203,13 @@ export default function Home() {
           </label>
 
           <label className="fieldLabel" htmlFor="pageText">
-            Page text
+            Page text or OCR anchors
           </label>
           <textarea
             id="pageText"
             value={pageText}
             onChange={(event) => setPageText(event.target.value)}
-            placeholder="Paste text from the page, or use a demo page."
+            placeholder="Paste 1-2 visible lines, upload a screenshot, or use a demo page."
           />
 
           <button className="primary" type="button" onClick={locate} disabled={Boolean(busy) || !pageText.trim()}>
@@ -278,7 +278,7 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            <div className="emptyState">Load a demo page, locate it, then ask the same question early and later.</div>
+            <div className="emptyState">Load before/after sorting, locate it, then ask the same question.</div>
           )}
 
           {answer?.context?.chunks?.length ? (

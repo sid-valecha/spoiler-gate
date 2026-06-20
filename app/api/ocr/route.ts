@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   try {
     const result = await client.messages.create({
       model: process.env.ANTHROPIC_MODEL,
-      max_tokens: 1200,
+      max_tokens: 350,
       temperature: 0,
       messages: [
         {
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
             {
               type: "text",
               text:
-                "Extract the visible book page text from this image. Return only the readable page text, preserving paragraph order. Do not summarize or explain.",
+                "Read only enough visible text to locate this page in a local book corpus. Return JSON only in this shape: {\"anchors\":[\"...\"]}. Each anchor must be an exact short OCR phrase of 5-12 consecutive words visible in the image, under 90 characters. Return 3-6 anchors if possible. Do not summarize, identify the book, or transcribe the full page.",
             },
           ],
         },
@@ -48,7 +48,38 @@ export async function POST(request: NextRequest) {
       .map((part) => (part.type === "text" ? part.text : ""))
       .join("")
       .trim();
-    return NextResponse.json({ text });
+    if (/not able to reproduce|copyright|can't provide|cannot provide|summarize/i.test(text)) {
+      return NextResponse.json(
+        { error: "OCR returned a summary/refusal instead of exact page anchors. Try a tighter crop of the page text." },
+        { status: 422 },
+      );
+    }
+
+    let anchors: string[] = [];
+    try {
+      const parsed = JSON.parse(text) as { anchors?: unknown };
+      if (Array.isArray(parsed.anchors)) {
+        anchors = parsed.anchors.filter((anchor): anchor is string => typeof anchor === "string");
+      }
+    } catch {
+      anchors = text
+        .split(/\n+/)
+        .map((line) => line.replace(/^[-*"'\s]+|[-*"'\s]+$/g, ""))
+        .filter(Boolean);
+    }
+
+    const usableAnchors = anchors
+      .map((anchor) => anchor.replace(/\s+/g, " ").trim())
+      .filter((anchor) => anchor.split(/\s+/).length >= 5 && anchor.length <= 140)
+      .slice(0, 6);
+    if (!usableAnchors.length) {
+      return NextResponse.json(
+        { error: "OCR could not read enough exact page words. Try a clearer screenshot or paste 1-2 visible lines." },
+        { status: 422 },
+      );
+    }
+
+    return NextResponse.json({ text: usableAnchors.join("\n"), anchors: usableAnchors });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "OCR failed" }, { status: 500 });
   }
