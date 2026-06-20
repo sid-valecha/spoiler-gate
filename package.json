@@ -1,0 +1,25 @@
+{
+  "name": "spoiler-gate",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "check": "npm run typecheck && npm run build",
+    "typecheck": "tsc --noEmit",
+    "ingest:hp": ".conda/bin/python scripts/epub_pipeline.py ingest local_books/harry-potter-sorcerers-stone.epub --book-id harry-potter-sorcerers-stone"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.68.0",
+    "next": "^16.0.10",
+    "openai": "^6.10.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
+  }
+}

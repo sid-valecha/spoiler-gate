@@ -15,6 +15,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!lib/
 lib64/
 parts/
 sdist/
@@ -171,6 +172,11 @@ local_books/
 *.sqlite3
 *.db
 data/generated/
+
+# Node / Next.js
+node_modules/
+.next/
+tsconfig.tsbuildinfo
 
 # Rope project settings
 .ropeproject
