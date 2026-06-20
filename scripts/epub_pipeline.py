@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup
 
 
 DB_PATH = Path("data/generated/spoiler_gate.sqlite")
+CORPUS_PATH = Path("data/generated/demo-corpus.json")
 
 
 def normalize_text(text: str) -> str:
@@ -478,6 +479,46 @@ def list_books(db_path: Path) -> list[dict[str, Any]]:
         return [dict(row) for row in conn.execute("SELECT * FROM books ORDER BY title")]
 
 
+def export_corpus(db_path: Path = DB_PATH, output_path: Path = CORPUS_PATH) -> dict[str, Any]:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        books = [dict(row) for row in conn.execute("SELECT * FROM books ORDER BY title")]
+        chapters = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT id, book_id, chapter_number, title, start_offset, end_offset, summary, text
+                FROM chapters
+                ORDER BY book_id, chapter_number
+                """
+            )
+        ]
+        chunks = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT id, book_id, chapter_number, start_offset, end_offset, text
+                FROM chunks
+                ORDER BY book_id, start_offset
+                """
+            )
+        ]
+    payload = {
+        "schema_version": 1,
+        "books": books,
+        "chapters": chapters,
+        "chunks": chunks,
+    }
+    output_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    return {
+        "output_path": str(output_path),
+        "books": len(books),
+        "chapters": len(chapters),
+        "chunks": len(chunks),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Spoiler Gate EPUB pipeline")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -501,6 +542,10 @@ def main() -> None:
     books = subparsers.add_parser("books")
     books.add_argument("--db", type=Path, default=DB_PATH)
 
+    export = subparsers.add_parser("export")
+    export.add_argument("--db", type=Path, default=DB_PATH)
+    export.add_argument("--output", type=Path, default=CORPUS_PATH)
+
     snippet = subparsers.add_parser("snippet")
     snippet.add_argument("--db", type=Path, default=DB_PATH)
     snippet.add_argument("--book-id", required=True)
@@ -515,6 +560,8 @@ def main() -> None:
         result = retrieve_context(args.db, args.book_id, args.offset, args.question)
     elif args.command == "books":
         result = list_books(args.db)
+    elif args.command == "export":
+        result = export_corpus(args.db, args.output)
     elif args.command == "snippet":
         result = demo_snippet(args.db, args.book_id, args.stage)
     else:

@@ -16,3 +16,17 @@ Local-only files:
 - Do not commit either.
 
 The app should read variable names from `.env.example`, not from real env files during planning/review.
+
+## Demo Data
+
+Build the local demo DB and optional JSON corpus artifact:
+
+```bash
+npm run prepare:local-demo
+```
+
+The JSON artifact is written to `data/generated/demo-corpus.json`. It is ignored because it may contain text derived from a user-owned EPUB.
+
+Local API routes prefer `data/generated/demo-corpus.json` when it exists, then fall back to the Python/SQLite pipeline.
+
+For public deployment, use a public-domain corpus or an explicitly approved demo artifact. Do not deploy private EPUB files or real secrets.

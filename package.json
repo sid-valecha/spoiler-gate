@@ -7,7 +7,9 @@
     "build": "next build",
     "check": "npm run typecheck && npm run build",
     "typecheck": "tsc --noEmit",
-    "ingest:hp": ".conda/bin/python scripts/epub_pipeline.py ingest local_books/harry-potter-sorcerers-stone.epub --book-id harry-potter-sorcerers-stone"
+    "ingest:hp": ".conda/bin/python scripts/epub_pipeline.py ingest local_books/harry-potter-sorcerers-stone.epub --book-id harry-potter-sorcerers-stone",
+    "export:corpus": ".conda/bin/python scripts/epub_pipeline.py export --output data/generated/demo-corpus.json",
+    "prepare:local-demo": "npm run ingest:hp && npm run export:corpus"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",

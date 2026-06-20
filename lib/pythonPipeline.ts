@@ -1,6 +1,13 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { promisify } from "node:util";
+import {
+  getJsonContext,
+  getJsonDemoSnippet,
+  hasJsonCorpus,
+  listJsonBooks,
+  locateJsonProgress,
+} from "./jsonCorpus";
 
 const execFileAsync = promisify(execFile);
 
@@ -45,11 +52,13 @@ export async function ensureDatabase() {
 }
 
 export async function listBooks() {
+  if (hasJsonCorpus()) return listJsonBooks();
   await ensureDatabase();
   return runPipeline<{ id: string; title: string; author?: string; source_label: string }[]>(["books", "--db", dbPath]);
 }
 
 export async function locateProgress(bookId: string, pageText: string) {
+  if (hasJsonCorpus()) return locateJsonProgress(bookId, pageText);
   await ensureDatabase();
   return runPipeline<LocatedProgress>([
     "locate",
@@ -63,6 +72,7 @@ export async function locateProgress(bookId: string, pageText: string) {
 }
 
 export async function getContext(bookId: string, offset: number, question: string) {
+  if (hasJsonCorpus()) return getJsonContext(bookId, offset, question);
   await ensureDatabase();
   return runPipeline<SafeContext>([
     "context",
@@ -78,6 +88,7 @@ export async function getContext(bookId: string, offset: number, question: strin
 }
 
 export async function getDemoSnippet(bookId: string, stage: "early" | "late") {
+  if (hasJsonCorpus()) return getJsonDemoSnippet(bookId, stage);
   await ensureDatabase();
   return runPipeline<{
     stage: string;

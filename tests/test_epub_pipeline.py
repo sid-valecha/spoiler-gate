@@ -7,6 +7,7 @@ from pathlib import Path
 
 from scripts.epub_pipeline import (
     build_database,
+    export_corpus,
     extract_epub,
     locate_progress,
     normalize_text,
@@ -124,6 +125,23 @@ class EpubPipelineTests(unittest.TestCase):
                 ).fetchone()[0]
 
             self.assertGreater(count, 0)
+
+    def test_export_corpus_writes_deployable_json_without_sqlite(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            epub_path = Path(tmp) / "mini.epub"
+            db_path = Path(tmp) / "mini.sqlite"
+            output_path = Path(tmp) / "corpus.json"
+            write_mini_epub(epub_path)
+            build_database(epub_path, db_path, "mini", chunk_size=12, overlap=2)
+
+            result = export_corpus(db_path, output_path)
+            data = json.loads(output_path.read_text())
+
+            self.assertEqual(result["books"], 1)
+            self.assertEqual(data["books"][0]["id"], "mini")
+            self.assertGreater(len(data["chapters"]), 0)
+            self.assertGreater(len(data["chunks"]), 0)
+            self.assertIn("masked visitor", data["chunks"][0]["text"].lower())
 
 
 if __name__ == "__main__":
