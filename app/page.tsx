@@ -44,6 +44,15 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   return data as T;
 }
 
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error || new Error("Could not read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function Home() {
   const [books, setBooks] = useState<Book[]>([]);
   const [bookId, setBookId] = useState("harry-potter-sorcerers-stone");
@@ -97,6 +106,24 @@ export default function Home() {
       setLocated(await postJson<Located>("/api/locate", { bookId, pageText }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function ocrImage(file: File | null) {
+    if (!file) return;
+    setBusy("Reading screenshot");
+    setError("");
+    setAnswer(null);
+    try {
+      const imageData = await readFileAsDataUrl(file);
+      const result = await postJson<{ text: string }>("/api/ocr", { imageData });
+      setPageText(result.text);
+      const locatedResult = await postJson<Located>("/api/locate", { bookId, pageText: result.text });
+      setLocated(locatedResult);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown OCR error");
     } finally {
       setBusy("");
     }
@@ -163,6 +190,17 @@ export default function Home() {
               Use later demo page
             </button>
           </div>
+
+          <label className="uploadBox">
+            <span>Upload page screenshot</span>
+            <small>Optional OCR path. Demo buttons are the reliable fallback.</small>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) => void ocrImage(event.target.files?.[0] || null)}
+              disabled={Boolean(busy)}
+            />
+          </label>
 
           <label className="fieldLabel" htmlFor="pageText">
             Page text

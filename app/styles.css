@@ -200,6 +200,32 @@ input {
   border-color: var(--accent);
 }
 
+.uploadBox {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  background: #fbfcf8;
+  padding: 12px;
+}
+
+.uploadBox span {
+  font-weight: 900;
+}
+
+.uploadBox small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.uploadBox input {
+  margin-top: 6px;
+  border: 0;
+  padding: 0;
+}
+
 .questionChip {
   margin-bottom: 2px;
   background: var(--accent-2);
