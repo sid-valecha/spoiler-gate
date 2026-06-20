@@ -149,8 +149,20 @@ export function getJsonContext(bookId: string, offset: number, question: string)
     .split(" ")
     .filter((word) => word.length > 3)
     .slice(0, 8);
-  const scoredChunks = corpus.chunks
-    .filter((chunk) => chunk.book_id === bookId && chunk.end_offset <= offset)
+  const safeFullChunks = corpus.chunks.filter((chunk) => chunk.book_id === bookId && chunk.end_offset <= offset);
+  const currentPartialChunk = corpus.chunks.find(
+    (chunk) => chunk.book_id === bookId && chunk.start_offset < offset && chunk.end_offset > offset,
+  );
+  const clippedCurrentChunk = currentPartialChunk
+    ? {
+        ...currentPartialChunk,
+        id: `${currentPartialChunk.id}-partial`,
+        end_offset: offset,
+        text: currentPartialChunk.text.slice(0, Math.max(0, offset - currentPartialChunk.start_offset)),
+      }
+    : null;
+
+  const scoredChunks = safeFullChunks
     .map((chunk) => ({
       chunk,
       score: terms.reduce((score, term) => score + (normalizeText(chunk.text).includes(term) ? 1 : 0), 0),
@@ -158,12 +170,11 @@ export function getJsonContext(bookId: string, offset: number, question: string)
     .sort((a, b) => b.score - a.score || b.chunk.end_offset - a.chunk.end_offset)
     .slice(0, 5)
     .map(({ chunk }) => chunk);
-  const nearbyChunks = corpus.chunks
-    .filter((chunk) => chunk.book_id === bookId && chunk.end_offset <= offset)
+  const nearbyChunks = safeFullChunks
     .sort((a, b) => b.end_offset - a.end_offset)
     .slice(0, 5);
   const seen = new Set<string>();
-  const safeChunks = [...scoredChunks, ...nearbyChunks]
+  const safeChunks = [...scoredChunks, ...nearbyChunks, ...(clippedCurrentChunk ? [clippedCurrentChunk] : [])]
     .filter((chunk) => {
       if (seen.has(chunk.id)) return false;
       seen.add(chunk.id);

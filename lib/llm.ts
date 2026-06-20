@@ -121,8 +121,16 @@ function fallbackAnswer(question: string, context: SafeContext): AnswerResult {
   const hasSuspicion = context.chunks.some((chunk) => /snape|severus/i.test(chunk.text));
   const hasQuirrellReveal = context.chunks.some((chunk) => /it was quirrell|quirrell.*stone|voldemort on my side/i.test(chunk.text));
   const hasStoneSuspicion = context.chunks.some((chunk) => /stone|fluffy|trapdoor|quirrell|snape/i.test(chunk.text));
+  const hasGryffindorSorting = context.chunks.some((chunk) => /GRYFFINDOR[!’!]/i.test(chunk.text));
+  const hasSortingContext = context.chunks.some((chunk) => /sorting|house|gryffindor|slytherin|hufflepuff|ravenclaw/i.test(chunk.text));
   let answer = "The safe context does not reveal that yet. I can only answer from text before your current position.";
-  if (/stone|steal|behind|plot|quirrell|voldemort/i.test(question) && hasQuirrellReveal) {
+  if (/house|sorted|sorting|gryffindor|slytherin|hufflepuff|ravenclaw/i.test(question) && hasGryffindorSorting) {
+    answer =
+      "By this point, the safe context reveals Harry has been sorted into Gryffindor. That answer is allowed now because the Sorting Hat decision is inside the current reading boundary.";
+  } else if (/house|sorted|sorting/i.test(question) && hasSortingContext) {
+    answer =
+      "The safe context has reached the Sorting ceremony, but it has not yet revealed Harry's final house. A spoiler-safe answer is that his house has not been revealed by this point.";
+  } else if (/stone|steal|behind|plot|quirrell|voldemort/i.test(question) && hasQuirrellReveal) {
     answer =
       "By this point, the safe excerpts reveal that Quirrell is directly involved with the attempt to get the Stone, and that earlier suspicion around Snape was misleading. I can say that now because those details are inside the current reading boundary.";
   } else if (/stone|steal|behind|plot/i.test(question) && hasStoneSuspicion) {
