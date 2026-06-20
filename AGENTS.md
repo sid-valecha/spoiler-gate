@@ -46,6 +46,18 @@ Only read or edit `.env.example`. Keep real API keys out of git.
 
 Expected key stubs live in `.env.example`.
 
+## Local Environment
+
+Use the project-local Conda environment:
+
+```text
+.conda/bin/python
+```
+
+Do not install packages with Homebrew Python or system Python.
+
+Local books belong in `local_books/`. That directory is ignored and may contain user-owned EPUB/text files for demo ingestion.
+
 ## Verification
 
 Before claiming a feature works, run the smallest relevant command:

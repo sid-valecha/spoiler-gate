@@ -152,6 +152,7 @@ activemq-data/
 .env.*
 !.env.example
 .envrc
+.conda/
 .venv
 env/
 venv/
@@ -162,6 +163,14 @@ venv.bak/
 # Spyder project settings
 .spyderproject
 .spyproject
+
+# Local hackathon data and generated artifacts
+local_books/
+*.epub
+*.sqlite
+*.sqlite3
+*.db
+data/generated/
 
 # Rope project settings
 .ropeproject
