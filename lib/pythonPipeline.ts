@@ -12,11 +12,11 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-const pythonPath = ".conda/bin/python";
+const pythonPath = process.env.PYTHON_BIN || ".conda/bin/python";
 const pipelineScript = "scripts/epub_pipeline.py";
 const dbPath = "data/generated/spoiler_gate.sqlite";
-const epubPath = "local_books/harry-potter-sorcerers-stone.epub";
-export const defaultBookId = "harry-potter-sorcerers-stone";
+const epubPath = "local_books/demo.epub";
+export const defaultBookId = "demo-book";
 
 export type LocatedProgress = {
   book_id: string;
@@ -91,7 +91,6 @@ export async function getContext(bookId: string, offset: number, question: strin
 export async function getDemoSnippet(bookId: string, stage: DemoStage) {
   if (hasJsonCorpus()) return getJsonDemoSnippet(bookId, stage);
   await ensureDatabase();
-  const legacyStage = stage === "snape-after" ? "late" : "early";
   return runPipeline<{
     stage: string;
     book_id: string;
@@ -99,5 +98,5 @@ export async function getDemoSnippet(bookId: string, stage: DemoStage) {
     start_offset: number;
     end_offset: number;
     text: string;
-  }>(["snippet", "--db", dbPath, "--book-id", bookId, "--stage", legacyStage]);
+  }>(["snippet", "--db", dbPath, "--book-id", bookId, "--stage", stage]);
 }

@@ -23,7 +23,7 @@ type Chunk = {
   text: string;
 };
 type Corpus = { schema_version: number; books: Book[]; chapters: Chapter[]; chunks: Chunk[] };
-export type DemoStage = "sorting-before" | "sorting-after" | "snape-before" | "snape-after" | "early" | "late";
+export type DemoStage = "early" | "late";
 
 let cachedCorpus: Corpus | null = null;
 
@@ -241,67 +241,11 @@ export function getJsonContext(bookId: string, offset: number, question: string)
 }
 
 export function getJsonDemoSnippet(bookId: string, stage: DemoStage) {
-  const normalizedStage = stage === "late" ? "sorting-after" : stage === "early" ? "sorting-before" : stage;
   const chunks = loadCorpus().chunks.filter((chunk) => chunk.book_id === bookId);
-  const sortingChunk = chunks.find((chunk) => /GRYFFINDOR[!’!]/i.test(chunk.text));
-  if ((normalizedStage === "sorting-before" || normalizedStage === "sorting-after") && sortingChunk) {
-    const match = sortingChunk.text.match(/GRYFFINDOR[!’!]/i);
-    const revealIndex = match?.index ?? Math.floor(sortingChunk.text.length / 2);
-    const text =
-      normalizedStage === "sorting-before"
-        ? sortingChunk.text.slice(Math.max(0, revealIndex - 700), Math.max(0, revealIndex - 80))
-        : sortingChunk.text.slice(Math.max(0, revealIndex - 300), Math.min(sortingChunk.text.length, revealIndex + 180));
-    return {
-      stage: normalizedStage,
-      book_id: bookId,
-      chapter_number: sortingChunk.chapter_number,
-      start_offset:
-        normalizedStage === "sorting-before"
-          ? sortingChunk.start_offset + Math.max(0, revealIndex - 700)
-          : sortingChunk.start_offset + Math.max(0, revealIndex - 300),
-      end_offset:
-        normalizedStage === "sorting-before"
-          ? sortingChunk.start_offset + Math.max(0, revealIndex - 80)
-          : sortingChunk.start_offset + Math.min(sortingChunk.text.length, revealIndex + 180),
-      text,
-    };
-  }
-
-  const snapeChunk =
-    normalizedStage === "snape-after"
-      ? chunks.find(
-          (chunk) =>
-            chunk.chapter_number === 22 &&
-            /Quirrell/i.test(chunk.text) &&
-            /Snape/i.test(chunk.text) &&
-            (/trying to save/i.test(chunk.text) || /never wanted/i.test(chunk.text)),
-        )
-      : chunks.find((chunk) => chunk.chapter_number >= 12 && chunk.chapter_number <= 15 && /Snape/i.test(chunk.text));
-  if ((normalizedStage === "snape-before" || normalizedStage === "snape-after") && snapeChunk) {
-    return {
-      stage: normalizedStage,
-      book_id: bookId,
-      chapter_number: snapeChunk.chapter_number,
-      start_offset: snapeChunk.start_offset,
-      end_offset: snapeChunk.end_offset,
-      text: snapeChunk.text,
-    };
-  }
-
-  const chosen =
-    normalizedStage === "snape-before"
-      ? chunks.find((chunk) => chunk.chapter_number >= 13 && chunk.chapter_number <= 15 && /Snape/i.test(chunk.text))
-      : chunks.find(
-          (chunk) =>
-            chunk.chapter_number === 22 &&
-            /Quirrell/i.test(chunk.text) &&
-            /Snape/i.test(chunk.text) &&
-            (/trying to save/i.test(chunk.text) || /never wanted/i.test(chunk.text)),
-        );
-  const chunk = chosen || chunks[0];
+  const chunk = stage === "late" ? chunks[Math.max(0, chunks.length - 1)] : chunks[0];
   if (!chunk) throw new Error(`No chunks found for ${bookId}`);
   return {
-    stage: normalizedStage,
+    stage,
     book_id: bookId,
     chapter_number: chunk.chapter_number,
     start_offset: chunk.start_offset,

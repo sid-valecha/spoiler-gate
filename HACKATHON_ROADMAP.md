@@ -26,7 +26,7 @@ Seed the demo with:
 
 - Public-domain text: `The Adventures of Sherlock Holmes`
 - Optional second public-domain text: `Alice's Adventures in Wonderland`
-- "Owned upload" demo slot: Harry Potter, framed as user-provided local text/EPUB for personal use
+- "Owned upload" demo slot: a user-provided local EPUB for personal use
 
 Do not position copyrighted text as bundled app data. For the demo, you can say: "This path works for user-owned EPUB/text uploads."
 
@@ -206,7 +206,7 @@ Hardcode where it helps:
 
 - Use two preloaded books.
 - Precompute chapter summaries manually or with a one-time script.
-- Include a demo Harry Potter-like row only if you have local owned text.
+- Include a familiar-book demo row only if you have local owned text.
 - Add sample page snippets as buttons:
   - `Use early page`
   - `Use later page`

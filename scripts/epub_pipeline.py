@@ -502,42 +502,16 @@ def demo_snippet(db_path: Path, book_id: str, stage: str) -> dict[str, Any]:
         raise ValueError("stage must be early or late")
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
-        if stage == "early":
-            row = conn.execute(
-                """
-                SELECT * FROM chunks
-                WHERE book_id = ?
-                  AND chapter_number BETWEEN 13 AND 15
-                  AND text LIKE '%Snape%'
-                ORDER BY start_offset
-                LIMIT 1
-                """,
-                (book_id,),
-            ).fetchone()
-        else:
-            row = conn.execute(
-                """
-                SELECT * FROM chunks
-                WHERE book_id = ?
-                  AND chapter_number = 22
-                  AND text LIKE '%Quirrell%'
-                  AND text LIKE '%Snape%'
-                  AND (text LIKE '%trying to save%' OR text LIKE '%never wanted%')
-                ORDER BY start_offset
-                LIMIT 1
-                """,
-                (book_id,),
-            ).fetchone()
-        if row is None:
-            row = conn.execute(
-                """
-                SELECT * FROM chunks
-                WHERE book_id = ?
-                ORDER BY start_offset
-                LIMIT 1
-                """,
-                (book_id,),
-            ).fetchone()
+        direction = "DESC" if stage == "late" else "ASC"
+        row = conn.execute(
+            f"""
+            SELECT * FROM chunks
+            WHERE book_id = ?
+            ORDER BY start_offset {direction}
+            LIMIT 1
+            """,
+            (book_id,),
+        ).fetchone()
         if row is None:
             raise ValueError(f"No chunks found for {book_id}")
         return {

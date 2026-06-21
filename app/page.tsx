@@ -55,7 +55,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 
 export default function Home() {
   const [books, setBooks] = useState<Book[]>([]);
-  const [bookId, setBookId] = useState("harry-potter-sorcerers-stone");
+  const [bookId, setBookId] = useState("demo-book");
   const [pageText, setPageText] = useState("");
   const [located, setLocated] = useState<Located | null>(null);
   const [question, setQuestion] = useState("");

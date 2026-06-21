@@ -116,45 +116,15 @@ async function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promis
   }
 }
 
-function fallbackAnswer(question: string, context: SafeContext): AnswerResult {
-  const hasReveal = context.chunks.some((chunk) => /never wanted you dead|trying to save|counter-curse/i.test(chunk.text));
-  const hasSuspicion = context.chunks.some((chunk) => /snape|severus/i.test(chunk.text));
-  const hasQuirrellReveal =
-    context.offset >= 400000 &&
-    context.chunks.some((chunk) => /it was quirrell|voldemort on my side|never wanted you dead|trying to save/i.test(chunk.text));
-  const hasQuirrellSafeContext = context.chunks.some((chunk) => /quirrell|anti-dark|fluffy|protect(?:ed|ing)? the stone/i.test(chunk.text));
-  const hasStoneSuspicion = context.chunks.some((chunk) => /stone|fluffy|trapdoor|quirrell|snape/i.test(chunk.text));
-  const hasCharlieRomania = context.chunks.some((chunk) => /charlie[\s\S]{0,120}romania|romania[\s\S]{0,120}charlie|studying dragons/i.test(chunk.text));
-  const hasGryffindorSorting = context.chunks.some((chunk) => /GRYFFINDOR[!’!]/i.test(chunk.text));
-  const hasSortingContext = context.chunks.some((chunk) => /sorting|house|gryffindor|slytherin|hufflepuff|ravenclaw/i.test(chunk.text));
-  const isAfterSortingReveal = context.book.id === "harry-potter-sorcerers-stone" && context.offset >= 170221;
-  let answer = "The safe context does not reveal that yet. I can only answer from text before your current position.";
-  if (/charlie|ron'?s brother|where/i.test(question) && hasCharlieRomania) {
-    answer =
-      "By this point, the safe context says Charlie is in Romania studying dragons. The text also shows Ron and the others planning to send Norbert to him there.";
-  } else if (/house|sorted|sorting|gryffindor|slytherin|hufflepuff|ravenclaw/i.test(question) && (hasGryffindorSorting || isAfterSortingReveal)) {
-    answer =
-      "By this point, the safe context reveals Harry has been sorted into Gryffindor. That answer is allowed now because the Sorting Hat decision is inside the current reading boundary.";
-  } else if (/house|sorted|sorting/i.test(question) && hasSortingContext) {
-    answer =
-      "The safe context has reached the Sorting ceremony, but it has not yet revealed Harry's final house. A spoiler-safe answer is that his house has not been revealed by this point.";
-  } else if (/stone|steal|behind|plot|quirrell|voldemort/i.test(question) && hasQuirrellReveal) {
-    answer =
-      "By this point, the safe excerpts reveal that Quirrell is directly involved with the attempt to get the Stone, and that earlier suspicion around Snape was misleading. I can say that now because those details are inside the current reading boundary.";
-  } else if (/quirrell|weird|strange|odd/i.test(question) && hasQuirrellSafeContext) {
-    answer =
-      "The safe context does not reveal a hidden reason for Quirrell's behavior yet. It only shows that Quirrell is one of the teachers involved in protecting the Stone, while Harry is still trying to understand the mystery around Fluffy and the protections.";
-  } else if (/stone|steal|behind|plot/i.test(question) && hasStoneSuspicion) {
-    answer =
-      "At this point, the safe context shows a mystery around the Stone, Fluffy, and suspicious behavior, but it does not yet reveal who is truly behind the plot. The spoiler-safe answer is that this has not been revealed yet.";
-  } else if (/snape|evil|trust/i.test(question) && hasReveal) {
-    answer =
-      "By this point, the text undercuts the simple idea that Snape was the main villain. The safe excerpts indicate he was hostile to Harry, but also that some earlier suspicions about him were misleading.";
-  } else if (/snape|evil|trust/i.test(question) && hasSuspicion) {
-    answer =
-      "Based only on what you have read so far, Snape looks hostile and suspicious, especially toward Harry. The safe context does not prove he is evil, so the honest answer is that it has not been revealed yet.";
-  }
-  return { answer, provider: "demo-fallback", model: "local-rule", verified: true, fallback: true };
+function fallbackAnswer(): AnswerResult {
+  return {
+    answer:
+      "Local deterministic mode does not infer story facts. It only confirms that the safe context below was retrieved without future chunks.",
+    provider: "local",
+    model: "deterministic-safety-check",
+    verified: true,
+    fallback: true,
+  };
 }
 
 function unavailableAnswer(): AnswerResult {
@@ -184,7 +154,7 @@ export async function answerQuestion(
   context: SafeContext,
   options: { fastDemo?: boolean } = {},
 ): Promise<AnswerResult> {
-  if (options.fastDemo) return fallbackAnswer(question, context);
+  if (options.fastDemo) return fallbackAnswer();
 
   const answer = await callProviders(answerPrompt(question, context));
   if (!answer) return unavailableAnswer();

@@ -8,12 +8,6 @@ can ingest their own legally owned EPUBs and run the app locally.
 
 ## Local Setup
 
-Use the project-local Conda environment:
-
-```bash
-conda activate /Users/sidvalecha/Developer/spoiler-gate/.conda
-```
-
 Local-only files:
 
 - Put user-owned EPUB/text files in `local_books/`.
@@ -22,13 +16,37 @@ Local-only files:
 
 The app should read variable names from `.env.example`, not from real env files during planning/review.
 
-Install and run:
+Install Node dependencies:
 
 ```bash
 npm install
+cp .env.example .env.local
+```
+
+Recommended Python setup with a project-local Conda environment:
+
+```bash
 conda env create -p ./.conda -f environment.yml
 conda activate ./.conda
-cp .env.example .env.local
+```
+
+Alternative Python setup with `venv`:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+If you use `venv` instead of Conda, set this in `.env.local`:
+
+```text
+PYTHON_BIN=.venv/bin/python
+```
+
+Start the app:
+
+```bash
 npm run dev
 ```
 

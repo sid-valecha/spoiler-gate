@@ -167,6 +167,7 @@ venv.bak/
 
 # Local hackathon data and generated artifacts
 local_books/
+script.md
 *.epub
 *.sqlite
 *.sqlite3

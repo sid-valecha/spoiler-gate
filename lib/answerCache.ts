@@ -5,8 +5,9 @@ import type { AnswerResult } from "./llm";
 import type { SafeContext } from "./pythonPipeline";
 
 const execFileAsync = promisify(execFile);
-const pythonPath = ".conda/bin/python";
+const pythonPath = process.env.PYTHON_BIN || ".conda/bin/python";
 const cacheScript = "scripts/answer_cache.py";
+const answerCacheVersion = "safe-context-v2";
 
 export type CachedAnswerResult = AnswerResult & {
   cacheHit?: boolean;
@@ -24,6 +25,7 @@ export function answerCacheKey(question: string, context: SafeContext, fastDemo:
   return createHash("sha256")
     .update(
       JSON.stringify({
+        version: answerCacheVersion,
         bookId: context.book.id,
         offset: context.offset,
         question: normalizeQuestion(question),
